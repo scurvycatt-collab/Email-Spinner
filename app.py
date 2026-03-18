@@ -1,9 +1,16 @@
 import streamlit as st
 import google.generativeai as genai
 
+# Danh sách từ khóa dễ kích hoạt bộ lọc Spam (Spam Trigger Words)
+SPAM_KEYWORDS = [
+    "free", "guarantee", "100%", "$$$", "risk-free", "risk free", "act now", 
+    "click here", "buy now", "no cost", "guaranteed ecpm", "boost revenue", 
+    "100% fill rate", "zero risk", "best price", "cheap", "make money"
+]
+
 # 1. Cấu hình giao diện Web
-st.title("🇺🇸 Hệ Thống Xào Nấu Email (Bản Tiếng Anh)")
-st.markdown("Nhập nhiều mẫu email đầu vào. Hệ thống sẽ trộn, xào nấu và viết lại thành MỘT bản tiếng Anh duy nhất, bám sát 100% ý gốc, không thêm thắt rườm rà.")
+st.title("🇺🇸 Hệ Thống Xào Nấu Email (Bản Tiếng Anh + Spam Checker)")
+st.markdown("Nhập mẫu email gốc. Hệ thống sẽ xào nấu sang Tiếng Anh chuyên nghiệp và TỰ ĐỘNG QUÉT từ khóa dễ bị vào hòm Spam.")
 
 # Nhập API Key ở thanh bên
 api_key = st.sidebar.text_input("Nhập Gemini API Key của bạn:", type="password")
@@ -15,9 +22,8 @@ with col1:
 with col2:
     app_name = st.text_input("Tên App/Game (VD: Flappy Bird)")
 
-# Ô nhập liệu lớn để dán nhiều mẫu mail
 base_emails = st.text_area(
-    "Dán các mẫu email gốc vào đây (Tiếng Anh hay Việt đều được, enter xuống dòng để phân cách các mẫu):", 
+    "Dán các mẫu email gốc vào đây (Tiếng Anh hay Việt đều được):", 
     height=200
 )
 
@@ -39,7 +45,6 @@ if st.button("Tạo bản Email Tiếng Anh 🚀"):
                 best_model = valid_models[0].replace('models/', '')
                 model = genai.GenerativeModel(best_model)
                 
-                # --- PROMPT MỚI: ÉP TIẾNG ANH & CẤM THÊM THẮT ---
                 prompt = f"""
                 You are a B2B Business Development expert. 
                 I will provide you with several source email templates. 
@@ -51,18 +56,31 @@ if st.button("Tạo bản Email Tiếng Anh 🚀"):
                 3. Personalize the email using these exact variables:
                    - Recipient Name: {customer_name}
                    - App/Game Name: {app_name}
-                4. Output ONLY the final email text ready to be sent. No introductory remarks, no explanations, no placeholders.
+                4. Output ONLY the final email text ready to be sent. No introductory remarks, no explanations.
                 
                 Source Emails to spin:
                 \"\"\"{base_emails}\"\"\"
                 """
                 
-                with st.spinner('Đang trộn và viết lại bằng Tiếng Anh...'):
+                with st.spinner('Đang trộn, xào nấu và rà soát Spam...'):
                     response = model.generate_content(prompt)
+                    final_email = response.text
                     
-                    st.success("Thành công! Copy email bên dưới để gửi nhé:")
-                    # Dùng text_area để dễ dàng bôi đen copy
-                    st.text_area("Kết quả:", response.text, height=250)
+                    # --- TÍNH NĂNG MỚI: KIỂM TRA SPAM ---
+                    detected_spam = []
+                    for word in SPAM_KEYWORDS:
+                        # Kiểm tra xem từ khóa có nằm trong email không (không phân biệt hoa thường)
+                        if word.lower() in final_email.lower():
+                            detected_spam.append(word)
+                            
+                    # Hiển thị kết quả kiểm tra
+                    if detected_spam:
+                        st.warning(f"⚠️ **CẢNH BÁO SPAM!** Phát hiện các cụm từ nhạy cảm, dễ bị Gmail tóm: **{', '.join(detected_spam)}**.\n\nBạn nên cân nhắc sửa hoặc xóa bớt để an toàn hơn.")
+                    else:
+                        st.success("✅ **TUYỆT VỜI!** Email sạch sẽ, không phát hiện từ khóa Spam nguy hiểm.")
+                    
+                    # Hiển thị kết quả cuối cùng
+                    st.text_area("Kết quả:", final_email, height=250)
                     
         except Exception as e:
             st.error(f"Hệ thống báo lỗi từ Google: {e}")
